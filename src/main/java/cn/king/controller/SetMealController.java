@@ -2,6 +2,7 @@ package cn.king.controller;
 
 
 import cn.king.common.R;
+import cn.king.dto.DishDto;
 import cn.king.dto.SetmealDto;
 import cn.king.entity.Employee;
 import cn.king.entity.Setmeal;
@@ -13,11 +14,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 
 @RestController
@@ -30,6 +33,8 @@ public class SetMealController {
     private SetMealDishService setMealDishService;
     @Autowired
     private CategoryService categoryService;
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @GetMapping("/page")
     public R<Page> page(int page, int pageSize, String name) {
@@ -80,10 +85,25 @@ public class SetMealController {
     }
     @GetMapping("/list")
     public R<List<Setmeal>> list(Setmeal setmeal){
+        //1.从Redis中获取缓存数据
+        String key = "dish_" + setmeal.getCategoryId() + "_" + setmeal.getStatus();
+        List<Setmeal> setmealList = (List<Setmeal>) redisTemplate.opsForValue().get(key);
+        //2.如果redis中存在
+        if (setmealList != null) {
+            return R.success(setmealList);
+        }
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Setmeal::getCategoryId,setmeal.getCategoryId()).eq(Setmeal::getStatus,1);
         List<Setmeal> list = setMealService.list(queryWrapper);
+        //如果redis没有数据，则加入数据
+        redisTemplate.opsForValue().set(key,list,60, TimeUnit.MINUTES);
         return R.success(list);
     }
 
+
+    @GetMapping("/{id}")
+    public R<Setmeal> get(@PathVariable Long id) {
+        Setmeal setmeal = setMealService.getById(id);
+        return R.success(setmeal);
+    }
 }

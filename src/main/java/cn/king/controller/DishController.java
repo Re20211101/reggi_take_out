@@ -14,10 +14,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,10 +32,14 @@ public class DishController {
     private DishFlavorService dishFlavorService;
     @Autowired
     private CategoryService categoryService;
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @PostMapping
     public R<String> save(@RequestBody DishDto dishDto) {
         dishService.saveWithFlavor(dishDto);
+        String key = "dish_" + dishDto.getCategoryId() + "_" + dishDto.getStatus();
+        redisTemplate.delete(key);
         return R.success("新增成功");
     }
 
@@ -74,6 +80,8 @@ public class DishController {
     @PutMapping
     public R<String> update(@RequestBody DishDto dishDto) {
         dishService.updateWithFlavor(dishDto);
+        String key = "dish_" + dishDto.getCategoryId() + "_" + dishDto.getStatus();
+        redisTemplate.delete(key);
         return R.success("修改成功");
     }
 
@@ -99,6 +107,13 @@ public class DishController {
         return R.success(list);
     }*/
     public R<List<DishDto>> list(Dish dish) {
+        //1.从Redis中获取缓存数据
+        String key = "dish_" + dish.getCategoryId() + "_" + dish.getStatus();
+        List<DishDto> dishDtoList = (List<DishDto>) redisTemplate.opsForValue().get(key);
+        //2.如果redis中存在
+        if (dishDtoList != null) {
+            return R.success(dishDtoList);
+        }
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Dish::getCategoryId, dish.getCategoryId());
         queryWrapper.eq(Dish::getStatus, 1);
@@ -108,11 +123,13 @@ public class DishController {
         List<DishDto> dtoList = new ArrayList<>();
         for (Dish dish1 : list) {
             DishDto dishDto = new DishDto();
-            BeanUtils.copyProperties(dish1,dishDto);
+            BeanUtils.copyProperties(dish1, dishDto);
             List<DishFlavor> flavors = dishService.getFlavorById(dishDto.getId()).getFlavors();
             dishDto.setFlavors(flavors);
             dtoList.add(dishDto);
         }
+        //如果redis没有数据，则加入数据
+        redisTemplate.opsForValue().set(key,dtoList,60, TimeUnit.MINUTES);
         return R.success(dtoList);
     }
 }

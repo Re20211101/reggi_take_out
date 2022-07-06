@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpSession;
+import javax.sql.DataSource;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -31,6 +32,7 @@ public class UserController {
 
     @Autowired
     private RedisTemplate redisTemplate;
+
 
     /**
      * 发送手机短信验证码

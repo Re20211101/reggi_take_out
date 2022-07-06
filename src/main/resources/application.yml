@@ -18,7 +18,9 @@ spring:
         max-idle: 4
         max-wait: 1ms
         min-idle: 0
-
+  cache:
+    redis:
+     time-to-live: 180000
 
 mybatis-plus:
   configuration:

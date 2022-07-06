@@ -1,5 +1,6 @@
 package cn.king.config;
 
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurerSupport;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,4 +23,5 @@ public class RedisConfig extends CachingConfigurerSupport {
 
         return redisTemplate;
     }
+
 }
